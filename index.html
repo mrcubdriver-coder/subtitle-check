@@ -38,6 +38,13 @@ textarea::placeholder{color:var(--mut)}
 .row.add textarea{grid-column:3;grid-row:1}
 h2{font-size:14px;margin:10px 0 0}
 #outwrap{display:none;flex:none;flex-direction:column;gap:4px}#outbar{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px;font-weight:600;color:var(--fg)}#out{overflow:auto;width:100%;box-sizing:border-box;height:84px;resize:vertical;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--card);cursor:text}
+.addbtn{grid-column:3/-1;grid-row:3;justify-self:start;font-size:13px;padding:3px 10px;font-weight:500}
+.row.ins{cursor:default;grid-template-columns:96px minmax(0,1fr) auto;border-style:dashed;border-color:var(--yelb)}
+.row.ins .lbl{grid-column:1/-1;font-size:13px;color:var(--fg);white-space:pre-line;overflow-wrap:anywhere}
+.row.ins{border-left:4px solid var(--yelb)}
+.row.ins input{grid-column:1;grid-row:2;width:100%;box-sizing:border-box;font:inherit;background:var(--yel);color:var(--fg);border:1px solid var(--yelb);border-radius:4px;padding:5px 7px;align-self:start}
+.row.ins textarea{grid-column:2;grid-row:2}
+.row.ins .rm{grid-column:3;grid-row:2;align-self:start;font-size:13px;padding:4px 10px;font-weight:500}
 @media (max-width:640px){
 body{font-size:16px;gap:6px}
 #vwrap{width:min(100%,calc(30vh*16/9))}
@@ -59,6 +66,12 @@ textarea{grid-column:1/-1;grid-row:auto;font-size:16px;min-height:46px;padding:8
 .row.add input{font-size:16px;padding:10px}
 .row.add textarea{grid-column:1}
 .row.add .n{display:block}
+.addbtn{grid-column:1/-1;grid-row:auto;font-size:15px;padding:8px 12px;min-height:40px}
+.row.ins{grid-template-columns:minmax(0,1fr) auto}
+.row.ins input{grid-column:1;grid-row:2;font-size:16px;padding:10px}
+.row.ins textarea{grid-column:1/-1;grid-row:3}
+.row.ins .rm{grid-column:2;grid-row:2;font-size:15px;padding:8px 12px;min-height:40px}
+.row.ins .lbl{font-size:14px}
 h2{font-size:15px}
 }
 textarea{overflow:hidden}
@@ -71,7 +84,7 @@ textarea{overflow:hidden}
   <span id="saved" style="color:var(--mut)"></span>
   <button id="copy">Copy my edits</button>
  </div>
- <p id="help"><span class="lg">Click a line to jump the video there. Type only in the yellow box if a subtitle should change. Leave it empty if it is OK. "(no subtitle)" rows are places with no caption: write one if you want. Your edits are saved in this browser.</span><span class="sm">Tap a line to jump the video. Write changes in the yellow box; empty = OK.</span></p>
+ <p id="help"><span class="lg">Click a line to jump the video there. Type only in the yellow box if a subtitle should change. Leave it empty if it is OK. "(no subtitle)" rows are places with no caption: write one if you want. Your edits are saved in this browser.</span><span class="sm">Tap a line to jump the video. Write subtitle changes in the yellow box; empty = OK. Use "+ Add visual info" to suggest graphics.</span></p>
 </div>
 <div id="list"></div>
 <div id="outwrap"><div id="outbar"><span id="outmsg"></span><button class="ghost" id="hide">Close</button></div><textarea id="out" readonly></textarea></div>
@@ -88,6 +101,26 @@ let store={};try{store=JSON.parse(localStorage.getItem("mtf-edits-224")||"{}")}c
 function save(){try{localStorage.setItem("mtf-edits-224",JSON.stringify(store));$("saved").textContent="Saved in this browser"}catch(e){$("saved").textContent="Could not save automatically"}}
 const list=$("list"),els=[];
 let player=null;
+const snip=r=>r.gap?"(no subtitle, "+mmss(r.s)+" - "+mmss(r.e)+")":'"'+r.text+'"';
+const nm=r=>r.gap?"gap":"line "+r.n;
+function ctx(i){const a=els[i]&&els[i][0],b=els[i+1]&&els[i+1][0];
+ const A=a?"above: "+nm(a)+" ("+mmss(a.s)+") "+snip(a):"above: (start)",B=b?"below: "+nm(b)+" ("+mmss(b.s)+") "+snip(b):"below: (end)";
+ return{long:"\u25B2 "+A+"\n\u25BC "+B,short:A+" | "+B}}
+let insList=[];try{insList=JSON.parse(store.ins||"[]")}catch(e){}
+const saveIns=()=>{store.ins=JSON.stringify(insList);save()};
+function mkIns(it,rowEl){
+ const idx=els.findIndex(([x])=>x.id===it.after);
+ it.pos=ctx(idx);
+ const d=document.createElement("div");d.className="row ins";d.dataset.k=it.k;
+ d.innerHTML=`<span class="lbl"></span><input aria-label="Time"><textarea placeholder="e.g. Rotate shoulders (with an arrow to the shoulders)"></textarea><button class="ghost rm">Remove</button>`;
+ d.querySelector(".lbl").textContent="NEW VISUAL INFO (graphic, text on screen, arrow...). It will go between these two lines:\n"+it.pos.long+"\nSet the time (e.g. 0:18 or 0:18-0:22) and describe what should appear:";
+ const ti=d.querySelector("input"),tx=d.querySelector("textarea");ti.value=it.t;tx.value=it.x;
+ ti.id="it-"+it.k;tx.id="ix-"+it.k;
+ ti.oninput=()=>{it.t=ti.value;saveIns()};tx.oninput=()=>{it.x=tx.value;saveIns()};
+ d.querySelector(".rm").onclick=()=>{insList=insList.filter(z=>z!==it);d.remove();saveIns()};
+ let last=rowEl;while(last.nextElementSibling&&last.nextElementSibling.classList.contains("ins"))last=last.nextElementSibling;
+ last.after(d);return d}
+
 function seek(f){if(player&&player.seekTo){player.seekTo(f/FPS,true);player.playVideo()}}
 function mk(r){
  const d=document.createElement("div");d.className="row"+(r.gap?" gap":"");d.dataset.id=r.id;
@@ -100,17 +133,21 @@ function mk(r){
  if(r.src){const s=document.createElement("span");s.className="th";s.textContent="Thai (auto-heard, may be wrong): "+r.src;m.append(s)}
  if(!m.children.length)m.remove();
  d.append(ta);
+ const ab=document.createElement("button");ab.className="ghost addbtn";ab.textContent="+ Add visual info after this line";
+ ab.addEventListener("click",e=>{e.stopPropagation();const it={k:"ins-"+Date.now()+"-"+Math.floor(Math.random()*1000),after:r.id,t:mmss(r.e),x:""};insList.push(it);saveIns();const el=mkIns(it,d);const x=el.querySelector("textarea");grow(x);x.focus()});
+ d.append(ab);
  d.classList.toggle("edited",!!ta.value.trim());
  d.addEventListener("click",e=>{if(e.target===ta)return;seek(r.s)});
  ta.addEventListener("input",()=>{store[r.id]=ta.value;d.classList.toggle("edited",!!ta.value.trim());save()});
  list.append(d);els.push([r,d]);
 }
 DATA.forEach(mk);
-const h=document.createElement("h2");h.textContent="Add more: anywhere else, type the time (e.g. 3:45) and the text";list.append(h);
+{const bad=[];for(const it of insList){const r=els.find(([x])=>x.id===it.after);if(r)mkIns(it,r[1]);else bad.push(it)}}
+const h=document.createElement("h2");h.textContent="Anything else: type the time (e.g. 3:45) and your idea (a subtitle or visual info)";list.append(h);
 for(let k=1;k<=6;k++){
  const d=document.createElement("div");d.className="row add";
  const id="add-"+k;let v={};try{v=JSON.parse(store[id]||"{}")}catch(e){}
- d.innerHTML=`<span class="n">+</span><input id="at-${k}" placeholder="3:45" aria-label="Time"><textarea id="ax-${k}" placeholder="Subtitle text"></textarea>`;
+ d.innerHTML=`<span class="n">+</span><input id="at-${k}" placeholder="3:45" aria-label="Time"><textarea id="ax-${k}" placeholder="Subtitle or visual info"></textarea>`;
  const ti=d.querySelector("input"),tx=d.querySelector("textarea");ti.value=v.t||"";tx.value=v.x||"";
  const up=()=>{store[id]=JSON.stringify({t:ti.value,x:tx.value});save()};
  ti.oninput=up;tx.oninput=up;list.append(d);
@@ -133,6 +170,7 @@ $("copy").onclick=()=>{
  const o=[`Subtitle edits – 2-2-4 Uppercut Elbow`];
  for(const[r]of els){const v=(store[r.id]||"").trim();if(!v)continue;
   o.push(`${r.id} | ${mmss(r.s)} | ${r.gap?"(no subtitle)":"Current: "+r.text}\n  Edit: ${v}`)}
+ for(const e of list.querySelectorAll(".row.ins")){const it=insList.find(z=>z.k===e.dataset.k);if(it&&(it.x||"").trim()){const a=it.after;o.push(`NEW VISUAL INFO at ${(it.t||"").trim()}\n  ${(it.pos||{}).short||a}\n  What to show: ${(it.x||"").trim()}`)}}
  for(let k=1;k<=6;k++){let v={};try{v=JSON.parse(store["add-"+k]||"{}")}catch(e){}
   if((v.t||"").trim()||(v.x||"").trim())o.push(`add-${k} | ${(v.t||"").trim()} | (new)\n  Edit: ${(v.x||"").trim()}`)}
  const txt=o.length>1?o.join("\n\n"):"No edits yet.";
