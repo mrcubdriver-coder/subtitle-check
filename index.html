@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Subtitle Check</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
@@ -17,7 +18,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.45 Inter,system-ui,-apple-
 button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--bg);padding:6px 12px;font-weight:600}
 button.ghost{background:transparent;color:var(--accent)}
 button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-#help{width:100%;font-size:13px;color:var(--mut);margin:0}
+#help .sm{display:none}#help{width:100%;font-size:13px;color:var(--mut);margin:0}
 #list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-bottom:24px}
 .row{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:grid;grid-template-columns:44px 52px minmax(0,1fr) minmax(0,1fr);gap:4px 10px;cursor:pointer;align-items:start}
 .row.active{background:var(--hl);border-color:var(--accent)}
@@ -36,8 +37,31 @@ textarea::placeholder{color:var(--mut)}
 .row.add input{width:100%;box-sizing:border-box;font:inherit;background:var(--yel);color:var(--fg);border:1px solid var(--yelb);border-radius:4px;padding:5px 7px}
 .row.add textarea{grid-column:3;grid-row:1}
 h2{font-size:14px;margin:10px 0 0}
-#out{display:none;flex:none;width:100%;box-sizing:border-box;height:84px;resize:vertical;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--card);cursor:text}
-@media (max-width:640px){.row{grid-template-columns:36px 48px minmax(0,1fr)}textarea{grid-column:1/-1;grid-row:auto}.meta{grid-column:3}.row.add{grid-template-columns:1fr}.row.add textarea{grid-column:1}}
+#out{overflow:auto;display:none;flex:none;width:100%;box-sizing:border-box;height:84px;resize:vertical;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--card);cursor:text}
+@media (max-width:640px){
+body{font-size:16px;gap:6px}
+#vwrap{width:min(100%,calc(30vh*16/9))}
+#bar h1{display:none}
+#bar{justify-content:space-between;font-size:15px}
+#bar label{font-size:15px}
+button{font-size:16px;padding:9px 14px}
+#help .lg{display:none}#help .sm{display:inline}#help{font-size:13px;line-height:1.3}#saved{display:none}#bar{flex-wrap:nowrap}
+.row{grid-template-columns:56px minmax(0,1fr);gap:6px 10px;padding:10px 12px}
+.t{font-size:16px;padding-top:2px}
+.n{display:none}
+.txt{font-size:18px;line-height:1.4}
+.meta{grid-column:2;font-size:14px}
+.chk{padding:2px 8px}
+.th{font-size:14px}
+textarea{grid-column:1/-1;grid-row:auto;font-size:16px;min-height:46px;padding:8px 10px}
+.row.gap{min-height:44px}
+.row.add{grid-template-columns:1fr}
+.row.add input{font-size:16px;padding:10px}
+.row.add textarea{grid-column:1}
+.row.add .n{display:block}
+h2{font-size:15px}
+}
+textarea{overflow:hidden}
 </style>
 <div id="top">
  <div id="vwrap"><div id="player"></div><div id="vfail">The video could not load here. Open it on YouTube: <a style="color:#9cf" href="https://youtu.be/_k3E0sSUrpE" target="_blank">youtu.be/_k3E0sSUrpE</a></div></div>
@@ -47,7 +71,7 @@ h2{font-size:14px;margin:10px 0 0}
   <span id="saved" style="color:var(--mut)"></span>
   <button id="copy">Copy my edits</button>
  </div>
- <p id="help">Click a line to jump the video there. Type only in the yellow box if a subtitle should change. Leave it empty if it is OK. "(no subtitle)" rows are places with no caption: write one if you want. Your edits are saved in this browser.</p>
+ <p id="help"><span class="lg">Click a line to jump the video there. Type only in the yellow box if a subtitle should change. Leave it empty if it is OK. "(no subtitle)" rows are places with no caption: write one if you want. Your edits are saved in this browser.</span><span class="sm">Tap a line to jump the video. Write changes in the yellow box; empty = OK.</span></p>
 </div>
 <div id="list"></div>
 <textarea id="out" readonly></textarea>
@@ -91,6 +115,10 @@ for(let k=1;k<=6;k++){
  const up=()=>{store[id]=JSON.stringify({t:ti.value,x:tx.value});save()};
  ti.oninput=up;tx.oninput=up;list.append(d);
 }
+function grow(el){el.style.height="auto";el.style.height=el.scrollHeight+2+"px"}
+const growAll=()=>list.querySelectorAll("textarea").forEach(grow);
+list.addEventListener("input",e=>{if(e.target.tagName==="TEXTAREA")grow(e.target)});
+growAll();addEventListener("resize",growAll);
 let activeEl=null;
 function tick(){
  if(!player||!player.getCurrentTime)return;
