@@ -36,7 +36,7 @@ textarea::placeholder{color:var(--mut)}
 .row.add input{width:100%;box-sizing:border-box;font:inherit;background:var(--yel);color:var(--fg);border:1px solid var(--yelb);border-radius:4px;padding:5px 7px}
 .row.add textarea{grid-column:3;grid-row:1}
 h2{font-size:14px;margin:10px 0 0}
-#out{display:none;width:100%;box-sizing:border-box;height:30vh;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--card);cursor:text}
+#out{display:none;flex:none;width:100%;box-sizing:border-box;height:84px;resize:vertical;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--card);cursor:text}
 @media (max-width:640px){.row{grid-template-columns:36px 48px minmax(0,1fr)}textarea{grid-column:1/-1;grid-row:auto}.meta{grid-column:3}.row.add{grid-template-columns:1fr}.row.add textarea{grid-column:1}}
 </style>
 <div id="top">
@@ -108,7 +108,7 @@ $("copy").onclick=()=>{
   if((v.t||"").trim()||(v.x||"").trim())o.push(`add-${k} | ${(v.t||"").trim()} | (new)\n  Edit: ${(v.x||"").trim()}`)}
  const txt=o.length>1?o.join("\n\n"):"No edits yet.";
  const out=$("out");out.value=txt;out.style.display="block";
- const done=()=>{$("copy").textContent="Copied!";setTimeout(()=>$("copy").textContent="Copy my edits",2000)};
+ const done=()=>{$("copy").textContent="Copied!";setTimeout(()=>$("copy").textContent="Copy my edits",3000)};
  const fb=()=>{out.focus();out.select();try{document.execCommand("copy")&&done()}catch(e){}$("copy").textContent="Select all and copy the text below";};
  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(done,fb);else fb();
 };
