@@ -45,6 +45,11 @@ h2{font-size:14px;margin:10px 0 0}
 .row.ins input{grid-column:1;grid-row:2;width:100%;box-sizing:border-box;font:inherit;background:var(--yel);color:var(--fg);border:1px solid var(--yelb);border-radius:4px;padding:5px 7px;align-self:start}
 .row.ins textarea{grid-column:2;grid-row:2}
 .row.ins .rm{grid-column:3;grid-row:2;align-self:start;font-size:13px;padding:4px 10px;font-weight:500}
+.row.ins .img{grid-column:1/-1;grid-row:3;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.filebtn{display:inline-block;cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:6px 12px;font-size:14px;font-weight:600}
+.filebtn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.thumb{max-height:72px;max-width:120px;border-radius:4px;border:1px solid var(--line)}
+.st{font-size:13px;color:var(--mut);overflow-wrap:anywhere;min-width:0}
 @media (max-width:640px){
 body{font-size:16px;gap:6px}
 #vwrap{width:min(100%,calc(30vh*16/9))}
@@ -72,6 +77,9 @@ textarea{grid-column:1/-1;grid-row:auto;font-size:16px;min-height:46px;padding:8
 .row.ins textarea{grid-column:1/-1;grid-row:3}
 .row.ins .rm{grid-column:2;grid-row:2;font-size:15px;padding:8px 12px;min-height:40px}
 .row.ins .lbl{font-size:14px}
+.row.ins .img{grid-row:4}
+.filebtn{font-size:16px;padding:10px 14px}
+.st{font-size:14px}
 h2{font-size:15px}
 }
 textarea{overflow:hidden}
@@ -106,16 +114,33 @@ const nm=r=>r.gap?"gap":"line "+r.n;
 function ctx(i){const a=els[i]&&els[i][0],b=els[i+1]&&els[i+1][0];
  const A=a?"above: "+nm(a)+" ("+mmss(a.s)+") "+snip(a):"above: (start)",B=b?"below: "+nm(b)+" ("+mmss(b.s)+") "+snip(b):"below: (end)";
  return{long:"\u25B2 "+A+"\n\u25BC "+B,short:A+" | "+B}}
+const UPLOAD_URL="https://script.google.com/macros/s/AKfycbzlsqhQTByD4WAFNa1yqvstc5G-2UfoqyB-ZK7g3CTrEvrAGnxp1b6kvR32Put6MbE9/exec",UPLOAD_TOKEN="u9h7IBWjMXHn7af2OST5q2Ug";
+function shrink(file){return new Promise((ok,ng)=>{const u=URL.createObjectURL(file),im=new Image();
+ im.onload=()=>{const m=1600,k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+  c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL("image/jpeg",.85))};
+ im.onerror=()=>{URL.revokeObjectURL(u);ng(new Error("img"))};im.src=u})}
 let insList=[];try{insList=JSON.parse(store.ins||"[]")}catch(e){}
 const saveIns=()=>{store.ins=JSON.stringify(insList);save()};
 function mkIns(it,rowEl){
  const idx=els.findIndex(([x])=>x.id===it.after);
  it.pos=ctx(idx);
  const d=document.createElement("div");d.className="row ins";d.dataset.k=it.k;
- d.innerHTML=`<span class="lbl"></span><input aria-label="Time"><textarea placeholder="e.g. Rotate shoulders (with an arrow to the shoulders)"></textarea><button class="ghost rm">Remove</button>`;
+ d.innerHTML=`<span class="lbl"></span><input aria-label="Time"><textarea placeholder="e.g. Rotate shoulders (with an arrow to the shoulders)"></textarea><button class="ghost rm">Remove</button><div class="img"><label class="filebtn">Attach image (optional)<input type="file" accept="image/*" hidden></label><img class="thumb" alt="" hidden><span class="st"></span></div>`;
  d.querySelector(".lbl").textContent="NEW VISUAL INFO (graphic, text on screen, arrow...). It will go between these two lines:\n"+it.pos.long+"\nSet the time (e.g. 0:18 or 0:18-0:22) and describe what should appear:";
  const ti=d.querySelector("input"),tx=d.querySelector("textarea");ti.value=it.t;tx.value=it.x;
  ti.id="it-"+it.k;tx.id="ix-"+it.k;
+ const fi=d.querySelector("input[type=file]"),th=d.querySelector(".thumb"),st=d.querySelector(".st");
+ if(it.img&&it.img.state==="up")it.img.state="fail";
+ const setSt=()=>{const g=it.img;st.textContent=!g?"":g.state==="up"?"Uploading...":g.state==="ok"?"Uploaded \u2713 ("+g.name+")":g.state==="fail"?"Upload failed. Please try 'Attach image' again.":"Upload is not set up yet. Please send the image to Nozomi in a message."};
+ setSt();
+ fi.onchange=async()=>{const f=fi.files[0];if(!f)return;
+  let data;try{data=await shrink(f)}catch(e){it.img={name:"",state:"fail"};setSt();saveIns();return}
+  th.src=data;th.hidden=false;
+  const name="visual_"+(ti.value.replace(/[^0-9a-z]+/gi,"-")||"x")+"_"+it.k+".jpg";
+  it.img={name,state:UPLOAD_URL?"up":"none"};setSt();saveIns();
+  if(!UPLOAD_URL)return;
+  try{const r=await fetch(UPLOAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:UPLOAD_TOKEN,name,note:ti.value+" | "+it.pos.short,data:data.split(",")[1]})});const j=await r.json();it.img.state=j.ok?"ok":"fail"}catch(e){it.img.state="fail"}
+  setSt();saveIns();fi.value=""};
  ti.oninput=()=>{it.t=ti.value;saveIns()};tx.oninput=()=>{it.x=tx.value;saveIns()};
  d.querySelector(".rm").onclick=()=>{insList=insList.filter(z=>z!==it);d.remove();saveIns()};
  let last=rowEl;while(last.nextElementSibling&&last.nextElementSibling.classList.contains("ins"))last=last.nextElementSibling;
@@ -170,7 +195,7 @@ $("copy").onclick=()=>{
  const o=[`Subtitle edits – 2-2-4 Uppercut Elbow`];
  for(const[r]of els){const v=(store[r.id]||"").trim();if(!v)continue;
   o.push(`${r.id} | ${mmss(r.s)} | ${r.gap?"(no subtitle)":"Current: "+r.text}\n  Edit: ${v}`)}
- for(const e of list.querySelectorAll(".row.ins")){const it=insList.find(z=>z.k===e.dataset.k);if(it&&(it.x||"").trim()){const a=it.after;o.push(`NEW VISUAL INFO at ${(it.t||"").trim()}\n  ${(it.pos||{}).short||a}\n  What to show: ${(it.x||"").trim()}`)}}
+ for(const e of list.querySelectorAll(".row.ins")){const it=insList.find(z=>z.k===e.dataset.k);if(it&&((it.x||"").trim()||it.img)){const a=it.after;o.push(`NEW VISUAL INFO at ${(it.t||"").trim()}\n  ${(it.pos||{}).short||a}\n  What to show: ${(it.x||"").trim()}${it.img?(it.img.state==="ok"?"\n  Image: "+it.img.name+" (uploaded to Drive)":"\n  Image: attached but NOT uploaded, please send it separately"):""}`)}}
  for(let k=1;k<=6;k++){let v={};try{v=JSON.parse(store["add-"+k]||"{}")}catch(e){}
   if((v.t||"").trim()||(v.x||"").trim())o.push(`add-${k} | ${(v.t||"").trim()} | (new)\n  Edit: ${(v.x||"").trim()}`)}
  const txt=o.length>1?o.join("\n\n"):"No edits yet.";
