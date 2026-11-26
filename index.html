@@ -93,7 +93,8 @@ textarea{overflow:hidden}
   <h1 id="title"></h1>
   <label><input type="checkbox" id="follow" checked> Follow video</label>
   <span id="saved" style="color:var(--mut)"></span>
-  <button id="copy">Copy all my edits</button>
+  <button id="send">Send to Nozomi</button><span id="sentinfo" style="color:var(--mut);font-size:12px"></span>
+  <button class="ghost" id="copy">Copy all my edits</button>
  </div>
  <p id="help"><span class="lg">Click a line to jump the video there. Type only in the yellow box if a subtitle should change. Leave it empty if it is OK. "(no subtitle)" rows are places with no caption: write one if you want. Your edits are saved in this browser.</span><span class="sm">Tap a line to jump the video. Write subtitle changes in the yellow box; empty = OK. Use "+ Add visual info" to suggest graphics.</span></p>
 </div>
@@ -203,9 +204,9 @@ function tick(){
 }
 setInterval(tick,250);
 $("hide").onclick=()=>{$("outwrap").style.display="none"};
-$("copy").onclick=()=>{
+function buildTxt(only){
  const o=[];
- for(const l of LESSONS){const s=l.key===KEY?store:load(l.key),q=[];
+ for(const l of LESSONS){if(only&&l.key!==only)continue;const s=l.key===KEY?store:load(l.key),q=[];
   let ins=[];try{ins=JSON.parse(s.ins||"[]")}catch(e){}
   for(const r of l.rows){const v=(s[r.id]||"").trim();
    if(v)q.push(`${r.id} | ${mmss(r.s)} | ${r.gap?"(no subtitle)":"Current: "+r.text}\n  Edit: ${v}`);
@@ -213,11 +214,30 @@ $("copy").onclick=()=>{
   for(let k=1;k<=6;k++){let v={};try{v=JSON.parse(s["add-"+k]||"{}")}catch(e){}
    if((v.t||"").trim()||(v.x||"").trim())q.push(`add-${k} | ${(v.t||"").trim()} | (new)\n  Edit: ${(v.x||"").trim()}`)}
   if(q.length)o.push(`===== ${l.title} =====`,...q)}
- const txt=o.length?o.join("\n\n"):"No edits yet.";
+ return o.length?o.join("\n\n"):"";
+}
+$("copy").onclick=()=>{
+ const txt=buildTxt()||"No edits yet.";
  const out=$("out");out.value=txt;$("outwrap").style.display="flex";$("outmsg").textContent="Please select all the text below, copy it, and paste it into your message to Nozomi.";
  const done=()=>{$("outmsg").textContent="Copied! Now paste it into your message to Nozomi and send it.";$("copy").textContent="Copied!";setTimeout(()=>$("copy").textContent="Copy all my edits",3000)};
  const fb=()=>{out.focus();out.select();try{document.execCommand("copy")&&done()}catch(e){}$("copy").textContent="Select all and copy the text below";};
  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(done,fb);else fb();
+};
+const LES_=()=>LESSONS.find(l=>l.key===KEY),SENTK=k=>"mtf-sent-"+k;
+function sendLabel(){const l=LES_(),t=(()=>{try{return localStorage.getItem(SENTK(KEY))}catch(e){return null}})();
+ $("send").textContent="Send "+l.no+" to Nozomi";$("sentinfo").textContent=t?"Last sent: "+t:""}
+sendLabel();
+$("send").onclick=async()=>{
+ const l=LES_(),txt=buildTxt(KEY),bt=$("send"),msg=t=>{$("out").value=txt;$("outwrap").style.display="flex";$("outmsg").textContent=t};
+ if(!txt){msg("No edits in "+l.no+" yet. Write in the yellow boxes first.");return}
+ if(!UPLOAD_URL){msg("Sending is not set up. Please use \"Copy all my edits\" instead.");return}
+ if(!confirm("Send your edits for "+l.title+" to Nozomi now?"))return;
+ bt.disabled=true;bt.textContent="Sending...";
+ try{const r=await fetch(UPLOAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:UPLOAD_TOKEN,kind:"edits",lesson:l.no,text:txt})});const j=await r.json();
+  if(!j.ok)throw 0;const now=new Date().toLocaleString();try{localStorage.setItem(SENTK(KEY),now)}catch(e){}
+  msg("Sent! Nozomi has received your edits for "+l.no+". If you change something later, just send it again (the newest one is used).");bt.textContent="Sent!"}
+ catch(e){msg("Could not send. Please tap \"Copy all my edits\" and paste it into your message to Nozomi.");bt.textContent="Send failed"}
+ bt.disabled=false;setTimeout(sendLabel,4000);
 };
 window.onYouTubeIframeAPIReady=()=>{player=new YT.Player("player",{videoId:URL_ID,playerVars:{rel:0,playsinline:1},events:{onError:()=>{$("vfail").style.display="block"}}})};
 const s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";
